@@ -1,0 +1,426 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Tic Tac Toe</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Caveat:wght@500;700&family=Patrick+Hand&display=swap" rel="stylesheet">
+<style>
+:root{
+  --paper:#fbfaf5; --rule:#c9dcef; --margin:#e9a3a3; --ink:#2b2f36; --soft:#6b7280;
+  --x:#2b2f36; --o:#c0392b; --win:#f7e27a; --btn:#ffffff; --btnline:#2b2f36;
+  box-sizing:border-box;
+  padding-top:env(safe-area-inset-top,0px);
+  padding-bottom:env(safe-area-inset-bottom,0px);
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    color-scheme:dark;
+    --paper:#1d2a24; --rule:#2a3a33; --margin:#3e5249; --ink:#eef0e8; --soft:#a8b3ab;
+    --x:#f2f2ea; --o:#ffb3a7; --win:#4a5d36; --btn:#24342d; --btnline:#eef0e8;
+  }
+}
+:root[data-theme="dark"]{
+  color-scheme:dark;
+  --paper:#1d2a24; --rule:#2a3a33; --margin:#3e5249; --ink:#eef0e8; --soft:#a8b3ab;
+  --x:#f2f2ea; --o:#ffb3a7; --win:#4a5d36; --btn:#24342d; --btnline:#eef0e8;
+}
+*,*::before,*::after{box-sizing:inherit}
+html{scroll-padding-top:env(safe-area-inset-top,0px);height:100%}
+body{
+  margin:0;min-height:100%;
+  background:var(--paper);
+  background-image:
+    linear-gradient(90deg,transparent 38px,var(--margin) 38px,var(--margin) 40px,transparent 40px),
+    repeating-linear-gradient(transparent 0 31px,var(--rule) 31px 32px);
+  color:var(--ink);
+  font-family:"Patrick Hand","Comic Sans MS","Segoe Print",cursive,sans-serif;
+  font-size:1.15rem;
+  -webkit-tap-highlight-color:transparent;
+}
+main{max-width:420px;margin:0 auto;padding:20px 20px 28px 56px;display:flex;flex-direction:column;gap:14px}
+h1{font-family:"Caveat","Patrick Hand",cursive;font-weight:700;font-size:2.6rem;line-height:1;margin:8px 0 0}
+.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+[hidden]{display:none!important}
+button,input{font:inherit;color:var(--ink);background:var(--btn);border:2px solid var(--btnline);
+  border-radius:12px 9px 13px 8px/9px 13px 8px 12px;padding:6px 14px;min-height:44px}
+button{cursor:pointer;user-select:none}
+button:disabled{opacity:.45;cursor:default}
+input{width:7.5em;text-transform:uppercase;letter-spacing:.15em}
+button[aria-pressed="true"]{background:var(--ink);color:var(--paper)}
+button:focus-visible,input:focus-visible{outline:3px dashed var(--o);outline-offset:3px}
+.status{font-family:"Caveat",cursive;font-size:1.9rem;min-height:2.2rem;line-height:1.1}
+.code{font-family:"Caveat",cursive;font-size:2.4rem;letter-spacing:.12em;line-height:1}
+.board{position:relative;width:100%;aspect-ratio:1;display:grid;grid-template:repeat(3,1fr)/repeat(3,1fr)}
+.board svg.grid{position:absolute;inset:0;width:100%;height:100%;pointer-events:none}
+.board svg.grid path{stroke:var(--ink);stroke-width:3;fill:none;stroke-linecap:round}
+.cell{background:transparent;border:none;border-radius:8px;padding:12%;min-height:0;display:flex;align-items:center;justify-content:center}
+.cell:disabled{opacity:1;cursor:default}
+.cell.win{background:var(--win)}
+.cell svg{width:100%;height:100%;overflow:visible}
+.cell path,.cell circle{fill:none;stroke-width:9;stroke-linecap:round;stroke-dasharray:200;stroke-dashoffset:200;animation:draw .28s ease-out forwards}
+.cell .x path{stroke:var(--x)}
+.cell .x path:nth-child(2){animation-delay:.14s}
+.cell .o circle{stroke:var(--o)}
+@keyframes draw{to{stroke-dashoffset:0}}
+@media (prefers-reduced-motion:reduce){.cell path,.cell circle{animation:none;stroke-dashoffset:0}}
+.score{display:flex;justify-content:space-between;font-size:1.25rem}
+.score b{font-family:"Caveat",cursive;font-size:1.7rem}
+.small{color:var(--soft);font-size:1rem;margin:0}
+.err{color:var(--o)}
+</style>
+</head>
+<body>
+<main>
+  <h1>Tic Tac Toe</h1>
+
+  <div class="row" role="group" aria-label="Mode">
+    <button id="mLocal" aria-pressed="true">Same phone</button>
+    <button id="mOnline" aria-pressed="false">Two phones</button>
+    <button id="mAi" aria-pressed="false">vs computer</button>
+  </div>
+  <div class="row" id="diffRow" role="group" aria-label="Difficulty" hidden>
+    <button id="dEasy" aria-pressed="true">Easy</button>
+    <button id="dHard" aria-pressed="false">Unbeatable</button>
+  </div>
+
+  <section id="lobby" hidden>
+    <div class="row">
+      <button id="create">Host a game</button>
+      <span class="small">or join with a code:</span>
+    </div>
+    <div class="row" style="margin-top:8px">
+      <input id="codeIn" maxlength="4" autocomplete="off" autocapitalize="characters" placeholder="CODE" aria-label="Game code">
+      <button id="join">Join</button>
+    </div>
+    <p class="small" id="lobbyMsg" style="margin-top:8px"></p>
+  </section>
+
+  <div class="row" id="gameInfo" hidden>
+    <span class="small">Code</span><span class="code" id="codeOut"></span>
+    <span class="small" id="seatOut"></span>
+    <button id="invite" hidden>Invite</button>
+    <button id="leave" style="margin-left:auto">Leave</button>
+  </div>
+
+  <div class="status" id="status" aria-live="polite"></div>
+
+  <div class="board" id="board">
+    <svg class="grid" viewBox="0 0 300 300" preserveAspectRatio="none" aria-hidden="true">
+      <path d="M101 6 C99 100 103 200 100 294"/>
+      <path d="M199 8 C201 110 197 190 200 292"/>
+      <path d="M6 101 C100 98 200 103 294 100"/>
+      <path d="M8 199 C110 202 190 197 292 200"/>
+    </svg>
+  </div>
+
+  <div class="score" id="scoreRow">
+    <span>X <b id="sx">0</b></span>
+    <span>Draws <b id="sd">0</b></span>
+    <span>O <b id="so">0</b></span>
+  </div>
+
+  <div class="row" id="ctrlRow">
+    <button id="again">New round</button>
+    <button id="reset">Reset score</button>
+  </div>
+  <p class="small" id="hint"></p>
+  <p class="small" id="linkOut" style="word-break:break-all"></p>
+</main>
+<script src="https://cdn.jsdelivr.net/npm/peerjs@1.5.4/dist/peerjs.min.js"></script>
+
+<script>
+const LINES=[[0,1,2],[3,4,5],[6,7,8],[0,3,6],[1,4,7],[2,5,8],[0,4,8],[2,4,6]];
+const $=id=>document.getElementById(id);
+const boardEl=$('board'), statusEl=$('status');
+const X_SVG='<svg class="x" viewBox="0 0 100 100"><path d="M18 20 C40 42 60 60 82 82"/><path d="M80 18 C60 40 42 58 20 82"/></svg>';
+const O_SVG='<svg class="o" viewBox="0 0 100 100"><circle cx="50" cy="50" r="32"/></svg>';
+const HINTS={
+  local:'Pass the phone back and forth. X starts, then the loser starts the next round.',
+  ai:'You are X, the computer is O. The loser starts the next round.',
+  online:'One phone hosts and gets a code. Friends join from their own phone with the code or the invite link. No account needed.'
+};
+
+let cells=[], shown=Array(9).fill('');
+for(let i=0;i<9;i++){
+  const b=document.createElement('button');
+  b.className='cell';
+  b.addEventListener('click',()=>onCell(i));
+  boardEl.appendChild(b); cells.push(b);
+}
+function drawBoard(b,line,canPlay){
+  for(let i=0;i<9;i++){
+    const v=b[i]||'';
+    if(v!==shown[i]){ cells[i].innerHTML = v==='X'?X_SVG:v==='O'?O_SVG:''; shown[i]=v; }
+    cells[i].classList.toggle('win',!!line && line.includes(i));
+    cells[i].disabled = !canPlay || !!v;
+    cells[i].setAttribute('aria-label','Square '+(i+1)+(v?': '+v:''));
+  }
+}
+function winner(b){
+  for(const l of LINES){const[a,c,d]=l;if(b[a]&&b[a]===b[c]&&b[a]===b[d])return{p:b[a],line:l}}
+  return b.every(Boolean)?{p:'D',line:[]}:null;
+}
+function showScore(x,o,d){$('sx').textContent=x;$('so').textContent=o;$('sd').textContent=d;}
+
+/* ---------- mode switching ---------- */
+let mode='local';
+function setMode(m){
+  if(mode==='online' && m!=='online') leaveOnline(true);
+  mode=m;
+  $('mLocal').setAttribute('aria-pressed',m==='local');
+  $('mOnline').setAttribute('aria-pressed',m==='online');
+  $('mAi').setAttribute('aria-pressed',m==='ai');
+  $('diffRow').hidden = m!=='ai';
+  $('hint').textContent = HINTS[m];
+  if(m==='online'){ showLobby(); }
+  else { $('lobby').hidden=true; $('gameInfo').hidden=true; showGameUI(true); local.score={X:0,O:0,D:0}; local.starter='X'; newLocalRound(); }
+}
+function showGameUI(on){ boardEl.hidden=!on; $('scoreRow').hidden=!on; $('ctrlRow').hidden=!on; }
+
+/* ---------- local + computer ---------- */
+const local={board:[],turn:'X',over:false,starter:'X',score:{X:0,O:0,D:0},diff:'easy'};
+function localStatus(){
+  if(mode==='ai') statusEl.textContent = local.turn==='X' ? 'Your turn (X)' : 'Computer is thinking…';
+  else statusEl.textContent = local.turn+' to move';
+}
+function newLocalRound(){
+  local.board=Array(9).fill(''); local.over=false; local.turn=local.starter;
+  drawBoard(local.board,null,true); localStatus();
+  showScore(local.score.X,local.score.O,local.score.D);
+  if(mode==='ai' && local.turn==='O'){ drawBoard(local.board,null,false); setTimeout(aiMove,450); }
+}
+function localPlay(i){
+  if(local.over||local.board[i]) return;
+  local.board[i]=local.turn;
+  const w=winner(local.board);
+  if(w){
+    local.over=true; local.score[w.p]++;
+    if(w.p==='D'){ statusEl.textContent='It’s a draw.'; local.starter = local.starter==='X'?'O':'X'; }
+    else { statusEl.textContent = mode==='ai' ? (w.p==='X'?'You win!':'Computer wins.') : w.p+' wins!'; local.starter = w.p==='X'?'O':'X'; }
+    drawBoard(local.board,w.line,false); showScore(local.score.X,local.score.O,local.score.D); return;
+  }
+  local.turn = local.turn==='X'?'O':'X';
+  const aiTurn = mode==='ai' && local.turn==='O';
+  drawBoard(local.board,null,!aiTurn); localStatus();
+  if(aiTurn) setTimeout(aiMove,450);
+}
+function minimax(b,p){
+  const w=winner(b);
+  if(w) return {s: w.p==='O'?10 : w.p==='X'?-10 : 0};
+  let best={s: p==='O'?-Infinity:Infinity, i:-1};
+  for(let i=0;i<9;i++){ if(b[i]) continue;
+    b[i]=p; const r=minimax(b,p==='O'?'X':'O'); b[i]='';
+    const s=r.s - Math.sign(r.s)*0.1;
+    if(p==='O'? s>best.s : s<best.s) best={s,i};
+  }
+  return best;
+}
+function findLine(b,p){
+  for(const l of LINES){const v=l.map(k=>b[k]);
+    if(v.filter(x=>x===p).length===2 && v.includes('')) return l[v.indexOf('')];}
+  return -1;
+}
+function aiMove(){
+  if(local.over || mode!=='ai') return;
+  const b=local.board, free=b.map((v,i)=>v?null:i).filter(v=>v!==null);
+  let i;
+  if(local.diff==='hard'){
+    i = free.length===9 ? [0,2,4,6,8][Math.floor(Math.random()*5)] : minimax(b.slice(),'O').i;
+  } else {
+    i=findLine(b,'O');
+    if(i<0 && Math.random()<0.6) i=findLine(b,'X');
+    if(i<0) i=free[Math.floor(Math.random()*free.length)];
+  }
+  localPlay(i);
+}
+function setDiff(d){
+  local.diff=d;
+  $('dEasy').setAttribute('aria-pressed',d==='easy');
+  $('dHard').setAttribute('aria-pressed',d==='hard');
+  local.score={X:0,O:0,D:0}; local.starter='X'; newLocalRound();
+}
+
+/* ---------- two phones (peer-to-peer, the host phone runs the game) ---------- */
+const PREFIX='ttt-v1-';
+const LETTERS='ABCDEFGHJKLMNPQRSTUVWXYZ';
+const net={peer:null,conn:null,role:'',seat:'',code:'',state:null,busy:false,timer:null};
+const hasPeer = typeof window.Peer==='function';
+
+function showLobby(){
+  $('gameInfo').hidden=true; showGameUI(false); $('lobby').hidden=false; $('linkOut').textContent='';
+  statusEl.textContent='';
+  $('create').disabled=!hasPeer; $('join').disabled=!hasPeer; $('codeIn').disabled=!hasPeer;
+  setLobbyMsg(hasPeer ? '' : 'Two-phone play needs an internet connection. Reload the page once you’re online.', !hasPeer);
+}
+function setLobbyMsg(t,err){ const m=$('lobbyMsg'); m.textContent=t; m.classList.toggle('err',!!err); }
+function randomCode(){ return Array.from({length:4},()=>LETTERS[Math.floor(Math.random()*LETTERS.length)]).join(''); }
+function freshState(){ return {board:Array(9).fill(''),turn:'X',starter:'X',sx:0,so:0,sd:0,result:'',line:[],ready:false}; }
+
+/* --- host --- */
+function hostGame(tries=0){
+  closeNet();
+  $('create').disabled=true; setLobbyMsg('Setting up your game…');
+  const code=randomCode();
+  const peer=new Peer(PREFIX+code.toLowerCase());
+  net.peer=peer;
+  peer.on('open',()=>{
+    Object.assign(net,{role:'host',seat:'X',code,state:freshState()});
+    enterGame();
+  });
+  peer.on('connection',c=>{
+    if(net.conn && net.conn.open){                 // only one friend at a time
+      c.on('open',()=>{ c.send({type:'full'}); setTimeout(()=>c.close(),500); });
+      return;
+    }
+    net.conn=c;
+    c.on('open',()=>{ net.state.ready=true; sync(); });
+    c.on('data',hostHandle);
+    c.on('close',()=>{ if(net.conn===c){ net.conn=null; net.state.ready=false; renderOnline(); } });
+  });
+  peer.on('disconnected',()=>{ if(!peer.destroyed) peer.reconnect(); });
+  peer.on('error',e=>{
+    if(e.type==='unavailable-id' && tries<5){ hostGame(tries+1); return; }
+    if(net.role==='host') return;                  // a hiccup after the game started; keep playing
+    $('create').disabled=false;
+    setLobbyMsg('Couldn’t set up a game. Check your internet connection and try again.',true);
+  });
+}
+function hostHandle(msg){
+  if(!msg||typeof msg!=='object') return;
+  if(msg.type==='move' && Number.isInteger(msg.i) && msg.i>=0 && msg.i<9) applyMove(msg.i,'O');
+  else if(msg.type==='newRound') hostNewRound();
+  else if(msg.type==='reset') hostReset();
+}
+function applyMove(i,p){
+  const s=net.state;
+  if(!s.ready||s.result||s.turn!==p||s.board[i]) return;
+  s.board[i]=p;
+  const w=winner(s.board);
+  if(w){
+    s.result=w.p; s.line=w.line;
+    if(w.p==='X'){s.sx++; s.starter='O';}
+    else if(w.p==='O'){s.so++; s.starter='X';}
+    else {s.sd++; s.starter=s.starter==='X'?'O':'X';}
+  } else s.turn = p==='X'?'O':'X';
+  sync();
+}
+function hostNewRound(){
+  const s=net.state;
+  if(s.result) s.turn=s.starter;
+  s.board=Array(9).fill(''); s.result=''; s.line=[];
+  sync();
+}
+function hostReset(){ Object.assign(net.state,{sx:0,so:0,sd:0}); sync(); }
+function sync(){
+  if(net.conn && net.conn.open) net.conn.send({type:'state',state:net.state});
+  renderOnline();
+}
+
+/* --- guest --- */
+function joinGame(){
+  const code=$('codeIn').value.trim().toUpperCase();
+  if(!/^[A-Z]{4}$/.test(code)){ setLobbyMsg('Enter the 4-letter code from your friend’s screen.',true); return; }
+  closeNet();
+  $('join').disabled=true; setLobbyMsg('Looking for the game…');
+  const peer=new Peer();
+  net.peer=peer;
+  clearTimeout(net.timer);
+  net.timer=setTimeout(()=>{ if(net.role!=='guest'){ closeNet(); $('join').disabled=false; setLobbyMsg('Couldn’t reach that game. Check the code, and that the host still has the game open.',true); } },15000);
+  peer.on('open',()=>{
+    const c=peer.connect(PREFIX+code.toLowerCase(),{reliable:true});
+    net.conn=c;
+    c.on('open',()=>{ clearTimeout(net.timer); Object.assign(net,{role:'guest',seat:'O',code,state:null}); enterGame(); });
+    c.on('data',msg=>{
+      if(msg&&msg.type==='state'){ net.state=msg.state; net.busy=false; renderOnline(); }
+      else if(msg&&msg.type==='full'){ closeNet(); showLobby(); setLobbyMsg('That game already has two players.',true); }
+    });
+    c.on('close',()=>{ if(net.role==='guest'){ statusEl.textContent='The host left the game.'; if(net.state) drawBoard(net.state.board,null,false); } });
+  });
+  peer.on('error',e=>{
+    if(net.role==='guest') return;
+    clearTimeout(net.timer); closeNet(); $('join').disabled=false;
+    setLobbyMsg(e.type==='peer-unavailable' ? 'No game with code '+code+'. Check the code and try again.' : 'Couldn’t connect. Check your internet connection and try again.',true);
+  });
+}
+
+/* --- shared online screen --- */
+function enterGame(){
+  $('lobby').hidden=true; $('gameInfo').hidden=false; showGameUI(true);
+  $('codeOut').textContent=net.code; $('seatOut').textContent='You are '+net.seat;
+  $('invite').hidden = net.role!=='host' || !/^https?:$/.test(location.protocol);
+  shown=Array(9).fill(''); cells.forEach(c=>c.innerHTML='');
+  renderOnline();
+}
+function renderOnline(){
+  const s=net.state;
+  if(!s){ drawBoard(Array(9).fill(''),null,false); statusEl.textContent='Connected. Loading the board…'; return; }
+  const myTurn = s.ready && !s.result && s.turn===net.seat && !net.busy;
+  drawBoard(s.board, s.result && s.result!=='D' ? s.line : null, myTurn);
+  showScore(s.sx,s.so,s.sd);
+  if(!s.ready) statusEl.textContent = net.role==='host' ? 'Waiting for your friend to join…' : 'Waiting for the host…';
+  else if(s.result==='D') statusEl.textContent='It’s a draw.';
+  else if(s.result) statusEl.textContent = s.result===net.seat ? 'You win!' : 'Your friend wins.';
+  else statusEl.textContent = s.turn===net.seat ? 'Your turn ('+net.seat+')' : 'Friend’s turn ('+s.turn+')';
+}
+function onlineMove(i){
+  if(!net.state) return;
+  if(net.role==='host') applyMove(i,'X');
+  else if(net.conn && net.conn.open && !net.busy){
+    const s=net.state;
+    if(!s.ready||s.result||s.turn!=='O'||s.board[i]) return;
+    net.busy=true; renderOnline();
+    net.conn.send({type:'move',i});
+  }
+}
+function onlineCommand(type){
+  if(net.role==='host'){ type==='newRound' ? hostNewRound() : hostReset(); }
+  else if(net.conn && net.conn.open) net.conn.send({type});
+}
+async function invite(){
+  const url=location.href.split('#')[0]+'#join-'+net.code;
+  const text='Play tic tac toe with me! Code: '+net.code;
+  try{ if(navigator.share){ await navigator.share({title:'Tic Tac Toe',text,url}); return; } }catch(e){ if(e&&e.name==='AbortError') return; }
+  try{ await navigator.clipboard.writeText(url); $('linkOut').textContent='Invite link copied: '+url; }
+  catch(e){ $('linkOut').textContent='Send your friend this link: '+url; }
+}
+function closeNet(){
+  clearTimeout(net.timer);
+  try{ if(net.conn) net.conn.close(); }catch(e){}
+  try{ if(net.peer) net.peer.destroy(); }catch(e){}
+  Object.assign(net,{peer:null,conn:null,role:'',seat:'',code:'',state:null,busy:false});
+}
+function leaveOnline(silent){
+  closeNet();
+  shown=Array(9).fill(''); cells.forEach(c=>{c.innerHTML='';c.classList.remove('win')});
+  if(!silent) showLobby();
+}
+window.addEventListener('pagehide',closeNet);
+
+/* ---------- wiring ---------- */
+function onCell(i){ if(mode==='online') onlineMove(i); else if(!(mode==='ai'&&local.turn==='O')) localPlay(i); }
+$('mLocal').onclick=()=>setMode('local');
+$('mOnline').onclick=()=>setMode('online');
+$('mAi').onclick=()=>setMode('ai');
+$('dEasy').onclick=()=>setDiff('easy');
+$('dHard').onclick=()=>setDiff('hard');
+$('create').onclick=()=>hostGame();
+$('join').onclick=joinGame;
+$('codeIn').addEventListener('keydown',e=>{ if(e.key==='Enter') joinGame(); });
+$('invite').onclick=invite;
+$('leave').onclick=()=>leaveOnline(false);
+$('again').onclick=()=>{ if(mode==='online') onlineCommand('newRound'); else newLocalRound(); };
+$('reset').onclick=()=>{ if(mode==='online') onlineCommand('reset'); else { local.score={X:0,O:0,D:0}; showScore(0,0,0); } };
+
+// Opened from an invite link like ...#join-ABCD? Jump straight in.
+const inviteMatch=location.hash.match(/^#join-([A-Z]{4})$/i);
+if(inviteMatch){
+  history.replaceState(null,'',location.pathname+location.search);
+  setMode('online'); $('codeIn').value=inviteMatch[1].toUpperCase();
+  if(hasPeer) joinGame();
+} else setMode('local');
+</script>
+</body>
+</html>
